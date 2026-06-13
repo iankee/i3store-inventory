@@ -119,7 +119,7 @@ This system solves all four in one unified platform.
 ### Installation
 
 ```bash
-git clone https://github.com/sricreate/i3store-inventory.git
+git clone https://github.com/iankee/i3store-inventory.git
 cd i3store-inventory
 
 # Create virtual environment
