@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Login — i3store Inventory</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        * { margin:0; padding:0; box-sizing:border-box; }
+        body {
+            font-family: 'Inter', system-ui, sans-serif;
+            background: #08090a; color: #f0f1f2;
+            display: flex; align-items: center; justify-content: center;
+            min-height: 100vh;
+        }
+        .login-box {
+            width: 380px; background: #111214;
+            border: 1px solid rgba(255,255,255,0.06);
+            border-radius: 12px; padding: 36px;
+        }
+        .login-brand { text-align:center; margin-bottom:28px; }
+        .login-brand .icon {
+            width: 48px; height: 48px; background: #5e6ad2;
+            border-radius: 10px; display: inline-flex; align-items: center;
+            justify-content: center; font-size: 22px; margin-bottom: 12px;
+        }
+        .login-brand h1 { font-size: 20px; font-weight: 600; letter-spacing: -0.3px; }
+        .login-brand p { color: #636670; font-size: 13px; margin-top: 4px; }
+
+        .field { margin-bottom: 16px; }
+        .field label { display: block; font-size: 12.5px; color: #a0a3ab; margin-bottom: 6px; font-weight: 500; }
+        .field input {
+            width: 100%; padding: 10px 14px;
+            background: #161719; border: 1px solid rgba(255,255,255,0.08);
+            border-radius: 8px; color: #f0f1f2; font-size: 14px;
+            font-family: inherit; outline: none; transition: border-color 0.2s;
+        }
+        .field input:focus { border-color: #5e6ad2; }
+
+        .btn-login {
+            width: 100%; padding: 10px; background: #5e6ad2;
+            border: none; border-radius: 8px; color: #fff;
+            font-size: 14px; font-weight: 600; cursor: pointer;
+            font-family: inherit; transition: background 0.2s;
+        }
+        .btn-login:hover { background: #7170ff; }
+
+        .error {
+            background: rgba(239,68,68,0.1); color: #f87171;
+            border: 1px solid rgba(239,68,68,0.2);
+            padding: 10px 14px; border-radius: 8px;
+            font-size: 13px; margin-bottom: 16px;
+        }
+    </style>
+</head>
+<body>
+    <div class="login-box">
+        <div class="login-brand">
+            <div class="icon">📦</div>
+            <h1>i3store Inventory</h1>
+            <p>Masuk untuk melanjutkan</p>
+        </div>
+        {% if error %}
+        <div class="error">{{ error }}</div>
+        {% endif %}
+        <form method="post" action="/auth/login">
+            <div class="field">
+                <label>Username</label>
+                <input type="text" name="username" placeholder="Masukkan username" required autofocus>
+            </div>
+            <div class="field">
+                <label>Password</label>
+                <input type="password" name="password" placeholder="Masukkan password" required>
+            </div>
+            <button type="submit" class="btn-login">Masuk</button>
+        </form>
+    </div>
+</body>
+</html>

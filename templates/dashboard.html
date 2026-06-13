@@ -1,0 +1,195 @@
+{% extends "base.html" %}
+{% block title %}Dashboard — i3store{% endblock %}
+{% block content %}
+
+<div class="row-between">
+    <h1 class="page-title">📊 Dashboard</h1>
+    <span class="text-muted">{{ now.strftime('%d %B %Y') if now else '' }}</span>
+</div>
+
+<!-- Metric Cards -->
+<div class="metrics-grid">
+    <div class="metric-card">
+        <div class="metric-header">
+            <span class="metric-icon blue">📦</span>
+        </div>
+        <div class="metric-value">{{ stats.total_products }}</div>
+        <div class="metric-label">Total Produk</div>
+    </div>
+    <div class="metric-card">
+        <div class="metric-header">
+            <span class="metric-icon green">📥</span>
+        </div>
+        <div class="metric-value">{{ stats.week_in }}</div>
+        <div class="metric-label">Produk Masuk (7 hari)</div>
+        <div class="metric-change up">📈 Masuk minggu ini</div>
+    </div>
+    <div class="metric-card">
+        <div class="metric-header">
+            <span class="metric-icon red">📤</span>
+        </div>
+        <div class="metric-value">{{ stats.week_out }}</div>
+        <div class="metric-label">Produk Keluar (7 hari)</div>
+        <div class="metric-change down">📉 Keluar minggu ini</div>
+    </div>
+    <div class="metric-card">
+        <div class="metric-header">
+            <span class="metric-icon {% if stats.low_stock > 0 %}amber{% else %}green{% endif %}">⚠️</span>
+        </div>
+        <div class="metric-value">{{ stats.total_stock }}</div>
+        <div class="metric-label">Total Stok</div>
+        {% if stats.low_stock > 0 %}
+        <div class="metric-change down">{{ stats.low_stock }} stok menipis</div>
+        {% endif %}
+    </div>
+</div>
+
+<!-- Chart -->
+<div class="panel" style="margin-bottom:20px;">
+    <div class="panel-header">
+        <span class="panel-title">📈 Tren 7 Hari</span>
+    </div>
+    <div class="chart-container">
+        <canvas id="trendChart"></canvas>
+    </div>
+</div>
+
+<!-- Recent Transactions -->
+<div class="panel">
+    <div class="panel-header">
+        <span class="panel-title">🔄 Transaksi Terbaru</span>
+        <a href="/products" class="btn" style="font-size:12px;">Semua Produk →</a>
+    </div>
+    <div style="overflow-x:auto;">
+        <table>
+            <thead>
+                <tr>
+                    <th>Waktu</th>
+                    <th>Produk</th>
+                    <th>Tipe</th>
+                    <th>Jumlah</th>
+                    <th>Stok</th>
+                    <th>Sumber</th>
+                    <th>Bukti</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for m in recent %}
+                <tr>
+                    <td class="mono">{{ m.created_at.strftime('%d/%m %H:%M') }}</td>
+                    <td><a href="/products/{{ m.product_id }}" style="color:var(--accent-hover);text-decoration:none;font-weight:500;">{{ m.product.name }}</a></td>
+                    <td>
+                        {% if m.type.value == 'stock_in' %}
+                        <span class="badge badge-in">📥 Masuk</span>
+                        {% elif m.type.value == 'stock_out' %}
+                        <span class="badge badge-out">📤 Keluar</span>
+                        {% else %}
+                        <span class="badge badge-adj">🔧 Adj</span>
+                        {% endif %}
+                    </td>
+                    <td class="{% if m.quantity > 0 %}text-green{% else %}text-red{% endif %} mono">
+                        {{ '+' if m.quantity > 0 else '' }}{{ m.quantity }}
+                    </td>
+                    <td class="mono">{{ m.stock_before }} → <strong>{{ m.stock_after }}</strong></td>
+                    <td>
+                        {% if m.source.value == 'telegram' %}<span class="badge badge-telegram">🤖 Bot</span>
+                        {% elif m.source.value == 'shopee' %}<span class="badge badge-shopee">🛒 Shopee</span>
+                        {% elif m.source.value == 'tokopedia' %}<span class="badge badge-tokopedia">🛍️ Tokopedia</span>
+                        {% else %}<span class="badge badge-web">🌐 Web</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        {% if m.photo_path %}
+                            {% set photos = m.photo_path.split('|') %}
+                            <div style="display:flex;gap:4px;flex-wrap:wrap;">
+                            {% for photo in photos[:3] %}
+                            {% set is_vid = photo.lower().endswith(('.mp4','.mov','.webm')) %}
+                            <button onclick="openModal('{{ m.photo_path }}', {{ loop.index0 }})"
+                                    style="background:none;border:1px solid var(--border-strong);border-radius:4px;padding:0;cursor:pointer;overflow:hidden;width:40px;height:40px;transition:all 0.2s;position:relative;"
+                                    onmouseover="this.style.borderColor='var(--accent)'"
+                                    onmouseout="this.style.borderColor='var(--border-strong)'"
+                                    title="Lihat bukti{% if is_vid %} (video){% endif %}">
+                                {% if is_vid %}
+                                <span style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,0.5);color:#fff;font-size:14px;">▶</span>
+                                {% else %}
+                                <img src="/uploads/{{ photo }}" style="width:100%;height:100%;object-fit:cover;" onerror="this.parentElement.style.display='none'" />
+                                {% endif %}
+                            </button>
+                            {% endfor %}
+                            {% if photos|length > 3 %}
+                            <span class="text-muted" style="font-size:11px;align-self:center;">+{{ photos|length - 3 }}</span>
+                            {% endif %}
+                            </div>
+                        {% else %}
+                        <span class="text-muted" style="font-size:11px;">—</span>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% else %}
+                <tr><td colspan="7" style="text-align:center;color:var(--text-muted);padding:32px;">Belum ada transaksi</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<script>
+// ── Chart ──
+(async () => {
+    try {
+        const resp = await fetch('/api/stats/trend');
+        const data = await resp.json();
+
+        new Chart(document.getElementById('trendChart'), {
+            type: 'line',
+            data: {
+                labels: data.labels,
+                datasets: [
+                    {
+                        label: 'Masuk',
+                        data: data.in,
+                        borderColor: '#4ade80',
+                        backgroundColor: 'rgba(74,222,128,0.08)',
+                        fill: true,
+                        tension: 0.3,
+                        pointRadius: 3,
+                        pointBackgroundColor: '#4ade80',
+                        borderWidth: 2,
+                    },
+                    {
+                        label: 'Keluar',
+                        data: data.out,
+                        borderColor: '#f87171',
+                        backgroundColor: 'rgba(248,113,113,0.08)',
+                        fill: true,
+                        tension: 0.3,
+                        pointRadius: 3,
+                        pointBackgroundColor: '#f87171',
+                        borderWidth: 2,
+                    }
+                ]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                interaction: { intersect: false, mode: 'index' },
+                plugins: {
+                    legend: {
+                        position: 'top',
+                        labels: { color: '#a0a3ab', usePointStyle: true, padding: 16, font: { size: 12 } }
+                    },
+                    tooltip: { backgroundColor: '#1a1a1f', titleColor: '#f0f1f2', bodyColor: '#a0a3ab' }
+                },
+                scales: {
+                    x: { grid: { color: 'rgba(255,255,255,0.04)' }, ticks: { color: '#636670', font: { size: 11 } } },
+                    y: { grid: { color: 'rgba(255,255,255,0.04)' }, ticks: { color: '#636670', font: { size: 11 } }, beginAtZero: true }
+                }
+            }
+        });
+
+    } catch(e) {
+        document.getElementById('trendChart').parentElement.innerHTML = '<p class="text-muted" style="text-align:center;padding:40px;">Gagal memuat chart</p>';
+    }
+})();
+</script>
+{% endblock %}

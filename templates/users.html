@@ -1,0 +1,95 @@
+{% extends "base.html" %}
+{% block title %}Pengguna — i3store{% endblock %}
+{% block content %}
+
+<div class="row-between mb-16">
+    <h1 class="page-title">👥 Manajemen Pengguna</h1>
+</div>
+
+{% if error %}
+<div class="flash flash-error">{{ error }}</div>
+{% endif %}
+
+<!-- Add User Form -->
+<div class="panel" style="margin-bottom:20px;">
+    <div class="panel-title" style="margin-bottom:12px;">➕ Tambah Pengguna Baru</div>
+    <form method="post" action="/auth/register" style="display:flex;gap:12px;align-items:flex-end;flex-wrap:wrap;">
+        <div class="field" style="flex:1;min-width:140px;">
+            <label style="display:block;font-size:12px;color:var(--text-muted);margin-bottom:4px;">Username</label>
+            <input type="text" name="username" required style="width:100%;padding:8px 12px;background:var(--bg-input);border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--text-primary);font-family:inherit;font-size:13px;">
+        </div>
+        <div class="field" style="flex:1;min-width:140px;">
+            <label style="display:block;font-size:12px;color:var(--text-muted);margin-bottom:4px;">Nama Tampilan</label>
+            <input type="text" name="display_name" required style="width:100%;padding:8px 12px;background:var(--bg-input);border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--text-primary);font-family:inherit;font-size:13px;">
+        </div>
+        <div class="field" style="flex:1;min-width:120px;">
+            <label style="display:block;font-size:12px;color:var(--text-muted);margin-bottom:4px;">Password</label>
+            <input type="password" name="password" required style="width:100%;padding:8px 12px;background:var(--bg-input);border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--text-primary);font-family:inherit;font-size:13px;">
+        </div>
+        <div class="field" style="min-width:100px;">
+            <label style="display:block;font-size:12px;color:var(--text-muted);margin-bottom:4px;">Role</label>
+            <select name="role" style="padding:8px 12px;background:var(--bg-input);border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--text-primary);font-family:inherit;font-size:13px;">
+                <option value="admin">Admin</option>
+                <option value="viewer">Viewer</option>
+            </select>
+        </div>
+        <button type="submit" class="btn btn-primary" style="height:36px;">Tambah</button>
+    </form>
+</div>
+
+<!-- User Table -->
+<div class="panel" style="overflow-x:auto;">
+    <table>
+        <thead>
+            <tr>
+                <th>Username</th>
+                <th>Nama</th>
+                <th>Role</th>
+                <th>Status</th>
+                <th>Dibuat</th>
+                <th></th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for u in users %}
+            <tr>
+                <td class="mono">{{ u.username }}</td>
+                <td>{{ u.display_name }}</td>
+                <td>
+                    {% if u.role == UserRole.OWNER %}
+                    <span class="badge" style="background:var(--accent-glow);color:var(--accent-hover);">👑 Owner</span>
+                    {% elif u.role == UserRole.ADMIN %}
+                    <span class="badge badge-in">Admin</span>
+                    {% else %}
+                    <span class="badge badge-web">Viewer</span>
+                    {% endif %}
+                </td>
+                <td>
+                    {% if u.is_active %}
+                    <span class="badge badge-in">Aktif</span>
+                    {% else %}
+                    <span class="badge badge-out">Nonaktif</span>
+                    {% endif %}
+                </td>
+                <td class="mono text-muted">{{ u.created_at.strftime('%d/%m/%y') }}</td>
+                <td>
+                    {% if u.id != user.id %}
+                    <form method="post" action="/api/users/{{ u.id }}/toggle" style="display:inline;">
+                        <button class="btn" style="font-size:11px;padding:3px 8px;">
+                            {{ 'Nonaktifkan' if u.is_active else 'Aktifkan' }}
+                        </button>
+                    </form>
+                    <form method="post" action="/api/users/{{ u.id }}/delete" style="display:inline;" onsubmit="return confirm('Hapus pengguna {{ u.username }}?')">
+                        <button class="btn" style="font-size:11px;padding:3px 8px;color:var(--red-text);">Hapus</button>
+                    </form>
+                    {% else %}
+                    <span class="text-muted" style="font-size:11px;">Anda</span>
+                    {% endif %}
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+
+{% endblock %}

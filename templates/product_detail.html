@@ -1,0 +1,125 @@
+{% extends "base.html" %}
+{% block title %}{{ product.name }} — i3store{% endblock %}
+{% block content %}
+
+<div class="row-between mb-16">
+    <div>
+        <a href="/products" class="btn" style="font-size:11px;margin-bottom:8px;">← Kembali</a>
+        <h1 class="page-title">{{ product.name }}</h1>
+    </div>
+    <div style="text-align:right;">
+        <div style="font-size:28px;font-weight:700;" class="{% if product.current_stock <= product.min_stock %}text-red{% else %}text-green{% endif %}">
+            {{ product.current_stock }}
+        </div>
+        <div class="text-muted">Stok Saat Ini</div>
+    </div>
+</div>
+
+<!-- Info Cards -->
+<div class="metrics-grid" style="grid-template-columns:repeat(4,1fr);margin-bottom:20px;">
+    <div class="metric-card">
+        <div class="metric-label">SKU</div>
+        <div class="metric-value" style="font-size:16px;margin-top:4px;">{{ product.sku or '—' }}</div>
+    </div>
+    <div class="metric-card">
+        <div class="metric-label">Min Stok</div>
+        <div class="metric-value" style="font-size:16px;margin-top:4px;">{{ product.min_stock }}</div>
+        {% if product.current_stock <= product.min_stock %}
+        <div class="metric-change down">⚠️ Perlu restock</div>
+        {% endif %}
+    </div>
+    <div class="metric-card">
+        <div class="metric-label">Harga Beli</div>
+        <div class="metric-value" style="font-size:16px;margin-top:4px;">{{ "Rp{:,.0f}".format(product.price_buy) if product.price_buy else '—' }}</div>
+    </div>
+    <div class="metric-card">
+        <div class="metric-label">Harga Jual</div>
+        <div class="metric-value" style="font-size:16px;margin-top:4px;">{{ "Rp{:,.0f}".format(product.price_sell) if product.price_sell else '—' }}</div>
+    </div>
+</div>
+
+{% if product.description %}
+<div class="panel" style="margin-bottom:20px;">
+    <div class="panel-title" style="margin-bottom:8px;">📝 Deskripsi</div>
+    <p style="color:var(--text-secondary);font-size:14px;">{{ product.description }}</p>
+</div>
+{% endif %}
+
+<!-- Mutasi Stok -->
+<div class="panel">
+    <div class="panel-header">
+        <span class="panel-title">🔄 Riwayat Mutasi Stok</span>
+    </div>
+    <div style="overflow-x:auto;">
+        <table>
+            <thead>
+                <tr>
+                    <th>Waktu</th>
+                    <th>Tipe</th>
+                    <th>Jumlah</th>
+                    <th>Stok</th>
+                    <th>Sumber</th>
+                    <th>Catatan</th>
+                    <th>Bukti</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for m in movements %}
+                <tr>
+                    <td class="mono">{{ m.created_at.strftime('%d/%m %H:%M') }}</td>
+                    <td>
+                        {% if m.type.value == 'stock_in' %}
+                        <span class="badge badge-in">📥 Masuk</span>
+                        {% elif m.type.value == 'stock_out' %}
+                        <span class="badge badge-out">📤 Keluar</span>
+                        {% else %}
+                        <span class="badge badge-adj">🔧 Adj</span>
+                        {% endif %}
+                    </td>
+                    <td class="mono {% if m.quantity > 0 %}text-green{% else %}text-red{% endif %}">
+                        {{ '+' if m.quantity > 0 else '' }}{{ m.quantity }}
+                    </td>
+                    <td class="mono">{{ m.stock_before }} → <strong>{{ m.stock_after }}</strong></td>
+                    <td>
+                        {% if m.source.value == 'telegram' %}<span class="badge badge-telegram">🤖 Bot</span>
+                        {% elif m.source.value == 'shopee' %}<span class="badge badge-shopee">🛒 Shopee</span>
+                        {% elif m.source.value == 'tokopedia' %}<span class="badge badge-tokopedia">🛍️ Tokopedia</span>
+                        {% else %}<span class="badge badge-web">🌐 Web</span>
+                        {% endif %}
+                    </td>
+                    <td class="text-muted" style="max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">
+                        {{ m.notes or '—' }}
+                    </td>
+                    <td>
+                        {% if m.photo_path %}
+                            {% set photos = m.photo_path.split('|') %}
+                            <div style="display:flex;gap:6px;flex-wrap:wrap;">
+                            {% for photo in photos %}
+                            {% set is_vid = photo.lower().endswith(('.mp4','.mov','.webm')) %}
+                            <button onclick="openModal('{{ m.photo_path }}', {{ loop.index0 }})"
+                                    style="background:none;border:1px solid var(--border-strong);border-radius:6px;padding:0;cursor:pointer;overflow:hidden;width:48px;height:48px;transition:all 0.2s;position:relative;"
+                                    onmouseover="this.style.borderColor='var(--accent)'"
+                                    onmouseout="this.style.borderColor='var(--border-strong)'"
+                                    title="Lihat bukti foto {{ loop.index }}{% if is_vid %} (video){% endif %}">
+                                {% if is_vid %}
+                                <span style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,0.5);color:#fff;font-size:18px;">▶</span>
+                                {% else %}
+                                <img src="/uploads/{{ photo }}" style="width:100%;height:100%;object-fit:cover;" onerror="this.parentElement.style.display='none'" />
+                                {% endif %}
+                            </button>
+                            {% endfor %}
+                            </div>
+                        {% else %}
+                        <span class="text-muted" style="font-size:11px;">—</span>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% else %}
+                <tr><td colspan="6" style="text-align:center;color:var(--text-muted);padding:32px;">Belum ada mutasi</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+{% endblock %}

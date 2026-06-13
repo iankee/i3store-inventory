@@ -1,0 +1,308 @@
+{% extends "base.html" %}
+{% block title %}Produk — i3store{% endblock %}
+{% block content %}
+
+<div class="row-between mb-16">
+    <h1 class="page-title">📦 Produk</h1>
+    <div style="display:flex;align-items:center;gap:12px;">
+        <span class="text-muted">{{ total_products }} produk</span>
+        <button class="btn btn-primary" onclick="openAddModal()" style="font-size:13px;">+ Tambah Produk</button>
+    </div>
+</div>
+
+{% if error %}
+<div class="flash flash-error" style="margin-bottom:16px;">{{ error }}</div>
+{% endif %}
+
+<!-- ── Search & Filters ── -->
+<div style="display:flex;align-items:center;gap:12px;margin-bottom:12px;flex-wrap:wrap;">
+    <form method="get" action="/products" style="display:flex;align-items:center;gap:8px;flex:1;min-width:200px;">
+        <div style="position:relative;flex:1;max-width:360px;">
+            <span style="position:absolute;left:12px;top:50%;transform:translateY(-50%);color:var(--text-muted);font-size:13px;">🔍</span>
+            <input type="text" name="search" value="{{ search }}" placeholder="Cari produk..."
+                style="width:100%;padding:9px 14px 9px 34px;background:var(--bg-input);border:1px solid var(--border);border-radius:var(--radius);color:var(--text-primary);font-size:13px;font-family:inherit;outline:none;">
+        </div>
+        {% if category %}<input type="hidden" name="category" value="{{ category }}">{% endif %}
+        {% if in_stock %}<input type="hidden" name="in_stock" value="{{ in_stock }}">{% endif %}
+        <input type="hidden" name="sort" value="{{ sort }}">
+        <button type="submit" class="btn" style="font-size:12px;padding:7px 14px;">Cari</button>
+        {% if search or category or in_stock %}
+        <a href="/products?sort={{ sort }}" class="btn" style="font-size:12px;padding:7px 12px;color:var(--text-muted);">✕ Reset</a>
+        {% endif %}
+    </form>
+
+    <!-- Sort -->
+    <div style="display:flex;align-items:center;gap:6px;">
+        <span class="text-muted" style="font-size:12px;">Urut:</span>
+        <select onchange="window.location=this.value" style="padding:7px 10px;background:var(--bg-input);border:1px solid var(--border);border-radius:var(--radius);color:var(--text-primary);font-size:12px;font-family:inherit;outline:none;cursor:pointer;">
+            {% set base = "/products?search=" + search + "&category=" + category + "&in_stock=" + in_stock + "&sort=" %}
+            <option value="{{ base }}name" {% if sort == 'name' %}selected{% endif %}>Nama A-Z</option>
+            <option value="{{ base }}newest" {% if sort == 'newest' %}selected{% endif %}>🆕 Terbaru</option>
+            <option value="{{ base }}stock_asc" {% if sort == 'stock_asc' %}selected{% endif %}>📦 Stok ↑</option>
+            <option value="{{ base }}stock_desc" {% if sort == 'stock_desc' %}selected{% endif %}>📦 Stok ↓</option>
+            <option value="{{ base }}recent_sold" {% if sort == 'recent_sold' %}selected{% endif %}>📤 Terjual</option>
+        </select>
+    </div>
+</div>
+
+<!-- ── Category Chips ── -->
+{% if categories %}
+<div style="display:flex;align-items:center;gap:6px;margin-bottom:12px;flex-wrap:wrap;">
+    <span class="text-muted" style="font-size:11px;">Kategori:</span>
+    <a href="/products?sort={{ sort }}{% if search %}&search={{ search }}{% endif %}{% if in_stock %}&in_stock={{ in_stock }}{% endif %}"
+       class="chip {% if not category %}chip-active{% endif %}">Semua</a>
+    {% for cat in categories %}
+    <a href="/products?category={{ cat.name }}&sort={{ sort }}{% if search %}&search={{ search }}{% endif %}{% if in_stock %}&in_stock={{ in_stock }}{% endif %}"
+       class="chip {% if category == cat.name %}chip-active{% endif %}">{{ cat.name }} <span class="chip-count">{{ cat.count }}</span></a>
+    {% endfor %}
+</div>
+{% endif %}
+
+<!-- ── Stock Toggle ── -->
+<div style="margin-bottom:12px;">
+    <a href="/products?in_stock={% if in_stock == '1' %}0{% else %}1{% endif %}&sort={{ sort }}{% if search %}&search={{ search }}{% endif %}{% if category %}&category={{ category }}{% endif %}"
+       class="chip {% if in_stock == '1' %}chip-active{% endif %}" style="{% if in_stock == '1' %}background:var(--accent);color:#fff;border-color:var(--accent);{% endif %}">
+        {% if in_stock == '1' %}✅{% else %}📦{% endif %} Ada Stok Saja
+    </a>
+</div>
+
+<!-- ── Active Filters ── -->
+{% if search or category or in_stock %}
+<div style="font-size:12px;color:var(--text-muted);margin-bottom:12px;">
+    Filter aktif:
+    {% if search %}<span style="background:var(--bg-input);padding:2px 8px;border-radius:4px;margin-right:4px;">🔍 "{{ search }}"</span>{% endif %}
+    {% if category %}<span style="background:var(--bg-input);padding:2px 8px;border-radius:4px;margin-right:4px;">🏷️ {{ category }}</span>{% endif %}
+    {% if in_stock == '1' %}<span style="background:var(--bg-input);padding:2px 8px;border-radius:4px;">📦 Ada stok</span>{% endif %}
+    &nbsp;→ {{ total_products }} hasil
+</div>
+{% endif %}
+
+<!-- ── Product Table ── -->
+<div class="panel" style="overflow-x:auto;">
+    <table>
+        <thead>
+            <tr>
+                <th>Nama Produk</th>
+                <th>SKU</th>
+                <th>Stok</th>
+                <th>Min Stok</th>
+                <th>Harga Beli</th>
+                <th>Harga Jual</th>
+                <th></th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for p in products %}
+            <tr>
+                <td>
+                    <a href="/products/{{ p.id }}" style="color:var(--text-primary);text-decoration:none;font-weight:500;">
+                        {{ p.name }}
+                    </a>
+                    {% if p.current_stock <= p.min_stock and p.current_stock == 0 %}
+                    <span class="badge badge-out" style="margin-left:6px;">⚠️ Habis</span>
+                    {% elif p.current_stock <= p.min_stock %}
+                    <span class="badge badge-out" style="margin-left:6px;">⚠️ Menipis</span>
+                    {% endif %}
+                </td>
+                <td class="mono text-muted">{{ p.sku or '—' }}</td>
+                <td class="mono">
+                    <strong class="{% if p.current_stock <= p.min_stock %}text-red{% else %}text-green{% endif %}">
+                        {{ p.current_stock }}
+                    </strong>
+                </td>
+                <td class="mono text-muted">{{ p.min_stock }}</td>
+                <td class="mono text-muted">{{ "Rp{:,.0f}".format(p.price_buy) if p.price_buy else '—' }}</td>
+                <td class="mono text-muted">{{ "Rp{:,.0f}".format(p.price_sell) if p.price_sell else '—' }}</td>
+                <td>
+                    <a href="/products/{{ p.id }}" class="btn" style="font-size:11px;padding:4px 10px;">Detail →</a>
+                    <button onclick="confirmDelete({{ p.id }}, '{{ p.name|e }}')" class="btn" style="font-size:11px;padding:4px 8px;margin-left:4px;color:var(--red);border-color:var(--red);" title="Hapus produk">🗑️</button>
+                </td>
+            </tr>
+            {% else %}
+            <tr><td colspan="7" style="text-align:center;color:var(--text-muted);padding:40px;">
+                🔍 Tidak ada produk{% if search %} dengan kata kunci "{{ search }}"{% endif %}.
+            </td></tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+
+<!-- ── Pagination ── -->
+{% if total_pages > 1 %}
+<div style="display:flex;align-items:center;justify-content:center;gap:6px;margin-top:16px;">
+    {% set pg_base = "/products?search=" + search + "&category=" + category + "&in_stock=" + in_stock + "&sort=" + sort + "&page=" %}
+    
+    {% if page > 1 %}
+    <a href="{{ pg_base }}{{ page - 1 }}" class="btn" style="font-size:12px;padding:6px 12px;">← Sebelumnya</a>
+    {% endif %}
+    
+    {% set start = [1, page - 2] | max %}
+    {% set end = [total_pages, page + 2] | min %}
+    {% if start > 1 %}
+    <a href="{{ pg_base }}1" class="btn" style="font-size:12px;padding:6px 10px;">1</a>
+    {% if start > 2 %}<span class="text-muted" style="padding:0 4px;">…</span>{% endif %}
+    {% endif %}
+    
+    {% for p in range(start, end + 1) %}
+    <a href="{{ pg_base }}{{ p }}" class="btn {% if p == page %}btn-primary{% endif %}" style="font-size:12px;padding:6px 10px;">{{ p }}</a>
+    {% endfor %}
+    
+    {% if end < total_pages %}
+    {% if end < total_pages - 1 %}<span class="text-muted" style="padding:0 4px;">…</span>{% endif %}
+    <a href="{{ pg_base }}{{ total_pages }}" class="btn" style="font-size:12px;padding:6px 10px;">{{ total_pages }}</a>
+    {% endif %}
+    
+    {% if page < total_pages %}
+    <a href="{{ pg_base }}{{ page + 1 }}" class="btn" style="font-size:12px;padding:6px 12px;">Selanjutnya →</a>
+    {% endif %}
+    
+    <span class="text-muted" style="font-size:12px;margin-left:8px;">{{ (page-1)*per_page+1 }}-{{ [page*per_page, total_products]|min }} dari {{ total_products }}</span>
+</div>
+{% endif %}
+
+<!-- ── Add Product Modal ── -->
+<div id="addProductModal" style="display:none;position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,0.7);align-items:center;justify-content:center;" onclick="if(event.target===this)closeAddModal()">
+    <div style="background:var(--bg-card);border:1px solid var(--border-strong);border-radius:var(--radius-lg);padding:28px;width:100%;max-width:480px;max-height:90vh;overflow-y:auto;" onclick="event.stopPropagation()">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;">
+            <h2 style="font-size:17px;font-weight:600;">➕ Tambah Produk Baru</h2>
+            <button onclick="closeAddModal()" style="background:none;border:none;color:var(--text-muted);font-size:20px;cursor:pointer;padding:4px 8px;border-radius:var(--radius-sm);">✕</button>
+        </div>
+
+        <form action="/products/add" method="post" style="display:flex;flex-direction:column;gap:14px;">
+            <div>
+                <label style="display:block;font-size:12px;color:var(--text-muted);margin-bottom:5px;font-weight:500;">Nama Produk <span style="color:var(--red);">*</span></label>
+                <input type="text" name="name" required autofocus
+                    style="width:100%;padding:10px 14px;background:var(--bg-input);border:1px solid var(--border);border-radius:var(--radius);color:var(--text-primary);font-size:13px;font-family:inherit;outline:none;"
+                    placeholder="Contoh: Kaos Polos Hitam">
+            </div>
+
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+                <div>
+                    <label style="display:block;font-size:12px;color:var(--text-muted);margin-bottom:5px;font-weight:500;">SKU</label>
+                    <input type="text" name="sku"
+                        style="width:100%;padding:10px 14px;background:var(--bg-input);border:1px solid var(--border);border-radius:var(--radius);color:var(--text-primary);font-size:13px;font-family:inherit;outline:none;"
+                        placeholder="KP-HTM-001">
+                </div>
+                <div>
+                    <label style="display:block;font-size:12px;color:var(--text-muted);margin-bottom:5px;font-weight:500;">Min. Stok</label>
+                    <input type="number" name="min_stock" value="5" min="0"
+                        style="width:100%;padding:10px 14px;background:var(--bg-input);border:1px solid var(--border);border-radius:var(--radius);color:var(--text-primary);font-size:13px;font-family:inherit;outline:none;">
+                </div>
+            </div>
+
+            <div>
+                <label style="display:block;font-size:12px;color:var(--text-muted);margin-bottom:5px;font-weight:500;">Deskripsi</label>
+                <textarea name="description" rows="2"
+                    style="width:100%;padding:10px 14px;background:var(--bg-input);border:1px solid var(--border);border-radius:var(--radius);color:var(--text-primary);font-size:13px;font-family:inherit;outline:none;resize:vertical;"
+                    placeholder="Deskripsi singkat produk..."></textarea>
+            </div>
+
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+                <div>
+                    <label style="display:block;font-size:12px;color:var(--text-muted);margin-bottom:5px;font-weight:500;">Harga Beli (Rp)</label>
+                    <input type="number" name="price_buy" min="0" step="1"
+                        style="width:100%;padding:10px 14px;background:var(--bg-input);border:1px solid var(--border);border-radius:var(--radius);color:var(--text-primary);font-size:13px;font-family:inherit;outline:none;"
+                        placeholder="50000">
+                </div>
+                <div>
+                    <label style="display:block;font-size:12px;color:var(--text-muted);margin-bottom:5px;font-weight:500;">Harga Jual (Rp)</label>
+                    <input type="number" name="price_sell" min="0" step="1"
+                        style="width:100%;padding:10px 14px;background:var(--bg-input);border:1px solid var(--border);border-radius:var(--radius);color:var(--text-primary);font-size:13px;font-family:inherit;outline:none;"
+                        placeholder="75000">
+                </div>
+            </div>
+
+            <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:4px;">
+                <button type="button" onclick="closeAddModal()" class="btn" style="font-size:13px;">Batal</button>
+                <button type="submit" class="btn btn-primary" style="font-size:13px;">💾 Simpan Produk</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+function openAddModal() {
+    document.getElementById('addProductModal').style.display = 'flex';
+    document.body.style.overflow = 'hidden';
+    setTimeout(() => {
+        const input = document.querySelector('#addProductModal input[name="name"]');
+        if (input) input.focus();
+    }, 100);
+}
+
+function closeAddModal() {
+    document.getElementById('addProductModal').style.display = 'none';
+    document.body.style.overflow = '';
+}
+
+// ── Delete Modal ──
+let deleteProductId = null;
+
+function confirmDelete(id, name) {
+    deleteProductId = id;
+    document.getElementById('deleteProductName').textContent = name;
+    document.getElementById('deleteModal').style.display = 'flex';
+    document.body.style.overflow = 'hidden';
+}
+
+function closeDeleteModal() {
+    document.getElementById('deleteModal').style.display = 'none';
+    document.body.style.overflow = '';
+    deleteProductId = null;
+}
+
+function doDelete() {
+    if (!deleteProductId) return;
+    const form = document.createElement('form');
+    form.method = 'POST';
+    form.action = '/products/' + deleteProductId + '/delete';
+    document.body.appendChild(form);
+    form.submit();
+}
+
+document.addEventListener('keydown', function(e) {
+    if (e.key === 'Escape') {
+        if (document.getElementById('deleteModal').style.display === 'flex') {
+            closeDeleteModal();
+        } else if (document.getElementById('addProductModal').style.display === 'flex') {
+            closeAddModal();
+        }
+    }
+});
+</script>
+
+<!-- ── Delete Confirmation Modal ── -->
+<div id="deleteModal" style="display:none;position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,0.7);align-items:center;justify-content:center;" onclick="if(event.target===this)closeDeleteModal()">
+    <div style="background:var(--bg-card);border:1px solid var(--border-strong);border-radius:var(--radius-lg);padding:28px;width:100%;max-width:420px;text-align:center;" onclick="event.stopPropagation()">
+        <div style="font-size:40px;margin-bottom:12px;">⚠️</div>
+        <h2 style="font-size:17px;font-weight:600;margin-bottom:8px;">Hapus Produk?</h2>
+        <p style="color:var(--text-muted);font-size:13px;margin-bottom:4px;">
+            Kamu akan menghapus:
+        </p>
+        <p style="font-weight:600;font-size:14px;margin-bottom:12px;color:var(--text-primary);" id="deleteProductName"></p>
+        <p style="color:var(--red);font-size:12px;margin-bottom:20px;">
+            ⚠️ Semua riwayat stok juga akan terhapus. Tindakan ini <strong>tidak bisa dibatalkan</strong>.
+        </p>
+        <div style="display:flex;gap:10px;justify-content:center;">
+            <button onclick="closeDeleteModal()" class="btn" style="font-size:13px;padding:8px 20px;">Batal</button>
+            <button onclick="doDelete()" class="btn" style="font-size:13px;padding:8px 20px;background:var(--red);color:#fff;border-color:var(--red);">🗑️ Ya, Hapus</button>
+        </div>
+    </div>
+</div>
+
+<style>
+.chip {
+    display:inline-flex;align-items:center;gap:3px;
+    padding:5px 12px;border-radius:16px;
+    background:var(--bg-input);border:1px solid var(--border);
+    color:var(--text-secondary);font-size:12px;
+    text-decoration:none;cursor:pointer;
+    transition:all 0.15s;
+    white-space:nowrap;
+}
+.chip:hover { border-color:var(--accent);color:var(--text-primary); }
+.chip-active { background:var(--accent);color:#fff;border-color:var(--accent); }
+.chip-count { font-size:10px;opacity:0.7; }
+</style>
+
+{% endblock %}

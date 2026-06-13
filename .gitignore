@@ -1,0 +1,43 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+venv/
+.venv/
+
+# Database
+*.db
+*.sqlite3
+
+# Environment (contains real secrets)
+.env
+
+# Uploads (user-generated content)
+uploads/*
+!uploads/.gitkeep
+
+# Cache
+out_cache/
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Backup
+*.bak
+*.backup
+
+# Bot logs
+*.log
+
+# Systemd
+*.service
+
+# Legacy duplicates
+templates/app.py
+templates/bot.py
+products.html
