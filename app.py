@@ -316,7 +316,7 @@ async def add_product_web(
     db.commit()
     db.refresh(product)
 
-    return RedirectResponse("/users", status_code=302)
+    return RedirectResponse("/products", status_code=302)
 
 
 
