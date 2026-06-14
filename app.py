@@ -725,7 +725,7 @@ async def api_stock_in(
 
     # Redirect for web form
     if "multipart/form-data" in content_type:
-        return RedirectResponse("/users", status_code=302)
+        return RedirectResponse("/products", status_code=302)
 
 
     return {
@@ -786,7 +786,7 @@ async def api_stock_out(
     db.commit()
 
     if "multipart/form-data" in content_type:
-        return RedirectResponse("/users", status_code=302)
+        return RedirectResponse("/products", status_code=302)
 
 
     return {
