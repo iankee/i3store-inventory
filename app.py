@@ -268,6 +268,12 @@ async def add_product_web(
     if not user:
         return RedirectResponse("/users", status_code=302)
 
+    if not has_permission(user, "products.create"):
+        return RedirectResponse("/", status_code=302)
+
+    if not has_permission(user, "products.create"):
+        return RedirectResponse("/", status_code=302)
+
 
     form = await request.form()
     name = form.get("name", "").strip()
@@ -331,6 +337,12 @@ async def product_detail_page(
     if not user:
         return RedirectResponse("/users", status_code=302)
 
+    if not has_permission(user, "products.view"):
+        return RedirectResponse("/", status_code=302)
+
+    if not has_permission(user, "products.view"):
+        return RedirectResponse("/", status_code=302)
+
 
     product = db.query(Product).filter(Product.id == product_id).first()
     if not product:
@@ -368,6 +380,12 @@ async def delete_product_web(
     user = db.query(User).filter(User.id == int(payload["sub"])).first()
     if not user:
         return RedirectResponse("/users", status_code=302)
+
+    if not has_permission(user, "products.delete"):
+        return RedirectResponse("/", status_code=302)
+
+    if not has_permission(user, "products.delete"):
+        return RedirectResponse("/", status_code=302)
 
 
     product = db.query(Product).filter(Product.id == product_id).first()
@@ -584,7 +602,11 @@ async def toggle_user(
 async def api_products(
     search: str = Query(""),
     db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
 ):
+    if not has_permission(current_user, "products.view"):
+        raise HTTPException(status_code=403, detail="Permission denied")
+
     query = db.query(Product)
     if search:
         query = query.filter(Product.name.ilike(f"%{search}%"))
@@ -598,6 +620,8 @@ async def api_create_product(
     db: Session = Depends(get_db),
     _user: User = Depends(get_current_user),
 ):
+    if not has_permission(_user, "products.create"):
+        raise HTTPException(status_code=403, detail="Permission denied")
     data = await request.json()
     product = Product(
         name=data["name"],
@@ -620,6 +644,9 @@ async def api_update_product(
     db: Session = Depends(get_db),
     _user: User = Depends(get_current_user),
 ):
+    if not has_permission(_user, "products.edit"):
+        raise HTTPException(status_code=403, detail="Permission denied")
+
     product = db.query(Product).filter(Product.id == product_id).first()
     if not product:
         raise HTTPException(status_code=404)
@@ -645,6 +672,9 @@ async def api_stock_in(
     current_user: User = Depends(get_current_user),
 ):
     """Add stock via web form or JSON."""
+    if not has_permission(current_user, "stock.in"):
+        raise HTTPException(status_code=403, detail="Permission denied")
+
     content_type = request.headers.get("content-type", "")
 
     if "multipart/form-data" in content_type:
@@ -713,6 +743,8 @@ async def api_stock_out(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
+    if not has_permission(current_user, "stock.out"):
+        raise HTTPException(status_code=403, detail="Permission denied")
     content_type = request.headers.get("content-type", "")
 
     if "multipart/form-data" in content_type:
@@ -772,7 +804,11 @@ async def api_movements(
     type: Optional[str] = Query(None),
     limit: int = Query(50, le=200),
     db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
 ):
+    if not has_permission(current_user, "products.view"):
+        raise HTTPException(status_code=403, detail="Permission denied")
+
     query = db.query(StockMovement)
     if product_id:
         query = query.filter(StockMovement.product_id == product_id)
@@ -799,7 +835,10 @@ async def api_movements(
 
 
 @app.get("/api/stats")
-async def api_stats(db: Session = Depends(get_db)):
+async def api_stats(db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+    if not has_permission(current_user, "reports.view"):
+        raise HTTPException(status_code=403, detail="Permission denied")
+
     return {
         "total_products": db.query(func.count(Product.id)).scalar() or 0,
         "total_stock": db.query(func.sum(Product.current_stock)).scalar() or 0,

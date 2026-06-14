@@ -6,7 +6,7 @@
     <h1 class="page-title">📦 Produk</h1>
     <div style="display:flex;align-items:center;gap:12px;">
         <span class="text-muted">{{ total_products }} produk</span>
-        <button class="btn btn-primary" onclick="openAddModal()" style="font-size:13px;">+ Tambah Produk</button>
+        {% if user and user.can("products.create") %}<button class="btn btn-primary" onclick="openAddModal()" style="font-size:13px;">+ Tambah Produk</button>{% endif %}
     </div>
 </div>
 
@@ -115,7 +115,7 @@
                 <td class="mono text-muted">{{ "Rp{:,.0f}".format(p.price_sell) if p.price_sell else '—' }}</td>
                 <td>
                     <a href="/products/{{ p.id }}" class="btn" style="font-size:11px;padding:4px 10px;">Detail →</a>
-                    <button onclick="confirmDelete({{ p.id }}, '{{ p.name|e }}')" class="btn" style="font-size:11px;padding:4px 8px;margin-left:4px;color:var(--red);border-color:var(--red);" title="Hapus produk">🗑️</button>
+                    {% if user and user.can("products.delete") %}<button onclick="confirmDelete({{ p.id }}, '{{ p.name|e }}')" class="btn" style="font-size:11px;padding:4px 8px;margin-left:4px;color:var(--red);border-color:var(--red);" title="Hapus produk">🗑️</button>{% endif %}
                 </td>
             </tr>
             {% else %}
