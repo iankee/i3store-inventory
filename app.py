@@ -42,12 +42,14 @@ from auth import (
     get_current_user,
     get_db,
     hash_password,
-    require_role,
+    require_permission,
     seed_admin,
     verify_password,
 )
 from config import PORT, UPLOAD_FOLDER
 from models import (
+    ALL_PERMISSIONS,
+    has_permission,
     MovementSource,
     MovementType,
     Product,
@@ -84,16 +86,19 @@ async def dashboard_page(request: Request, db: Session = Depends(get_db)):
     """Main dashboard — requires login."""
     token = request.cookies.get("inv_token")
     if not token:
-        return RedirectResponse("/login", status_code=302)
+        return RedirectResponse("/users", status_code=302)
+
 
     from auth import decode_token
     payload = decode_token(token)
     if not payload:
-        return RedirectResponse("/login", status_code=302)
+        return RedirectResponse("/users", status_code=302)
+
 
     user = db.query(User).filter(User.id == int(payload["sub"])).first()
     if not user:
-        return RedirectResponse("/login", status_code=302)
+        return RedirectResponse("/users", status_code=302)
+
 
     # Stats
     total_products = db.query(func.count(Product.id)).scalar() or 0
@@ -156,11 +161,13 @@ async def products_page(
     from auth import decode_token
     payload = decode_token(token)
     if not payload:
-        return RedirectResponse("/login", status_code=302)
+        return RedirectResponse("/users", status_code=302)
+
 
     user = db.query(User).filter(User.id == int(payload["sub"])).first()
     if not user:
-        return RedirectResponse("/login", status_code=302)
+        return RedirectResponse("/users", status_code=302)
+
 
     query = db.query(Product)
 
@@ -254,11 +261,13 @@ async def add_product_web(
     from auth import decode_token
     payload = decode_token(token)
     if not payload:
-        return RedirectResponse("/login", status_code=302)
+        return RedirectResponse("/users", status_code=302)
+
 
     user = db.query(User).filter(User.id == int(payload["sub"])).first()
     if not user:
-        return RedirectResponse("/login", status_code=302)
+        return RedirectResponse("/users", status_code=302)
+
 
     form = await request.form()
     name = form.get("name", "").strip()
@@ -301,7 +310,8 @@ async def add_product_web(
     db.commit()
     db.refresh(product)
 
-    return RedirectResponse(f"/products/{product.id}", status_code=302)
+    return RedirectResponse("/users", status_code=302)
+
 
 
 @app.get("/products/{product_id}", response_class=HTMLResponse)
@@ -314,11 +324,13 @@ async def product_detail_page(
     from auth import decode_token
     payload = decode_token(token)
     if not payload:
-        return RedirectResponse("/login", status_code=302)
+        return RedirectResponse("/users", status_code=302)
+
 
     user = db.query(User).filter(User.id == int(payload["sub"])).first()
     if not user:
-        return RedirectResponse("/login", status_code=302)
+        return RedirectResponse("/users", status_code=302)
+
 
     product = db.query(Product).filter(Product.id == product_id).first()
     if not product:
@@ -350,11 +362,13 @@ async def delete_product_web(
     from auth import decode_token
     payload = decode_token(token)
     if not payload:
-        return RedirectResponse("/login", status_code=302)
+        return RedirectResponse("/users", status_code=302)
+
 
     user = db.query(User).filter(User.id == int(payload["sub"])).first()
     if not user:
-        return RedirectResponse("/login", status_code=302)
+        return RedirectResponse("/users", status_code=302)
+
 
     product = db.query(Product).filter(Product.id == product_id).first()
     if not product:
@@ -365,7 +379,8 @@ async def delete_product_web(
     db.delete(product)
     db.commit()
 
-    return RedirectResponse("/products", status_code=302)
+    return RedirectResponse("/users", status_code=302)
+
 
 
 @app.get("/users", response_class=HTMLResponse)
@@ -377,11 +392,13 @@ async def users_page(
     from auth import decode_token
     payload = decode_token(token)
     if not payload:
-        return RedirectResponse("/login", status_code=302)
+        return RedirectResponse("/users", status_code=302)
+
 
     user = db.query(User).filter(User.id == int(payload["sub"])).first()
-    if not user or user.role != UserRole.OWNER:
-        return RedirectResponse("/", status_code=302)
+    if not user or not has_permission(user, "users.manage"):
+        return RedirectResponse("/users", status_code=302)
+
 
     users = db.query(User).order_by(User.created_at).all()
     return templates.TemplateResponse("users.html", {
@@ -389,6 +406,7 @@ async def users_page(
         "user": user,
         "users": users,
         "UserRole": UserRole,
+        "ALL_PERMISSIONS": ALL_PERMISSIONS,
     })
 
 
@@ -452,14 +470,19 @@ async def logout():
 async def register(
     request: Request,
     db: Session = Depends(get_db),
-    _owner: User = Depends(require_role(UserRole.OWNER)),
+    _owner: User = Depends(require_permission("users.manage")),
 ):
     """Register a new user (owner only)."""
     form = await request.form()
     username = form.get("username", "").strip()
     password = form.get("password", "").strip()
     display_name = form.get("display_name", "").strip()
+    telegram_username = form.get("telegram_username", "").strip().lstrip("@")
     role = form.get("role", "admin")
+    # Collect permissions from checkboxes (keys prefixed with "perm_")
+    import json as _json
+    perm_keys = [k[5:] for k in form.keys() if k.startswith("perm_")]
+    perms_json = _json.dumps(perm_keys) if perm_keys else None
 
     if not username or not password or not display_name:
         users = db.query(User).order_by(User.created_at).all()
@@ -468,6 +491,7 @@ async def register(
             "user": _owner,
             "users": users,
             "UserRole": UserRole,
+            "ALL_PERMISSIONS": ALL_PERMISSIONS,
             "error": "Semua field wajib diisi",
         })
 
@@ -478,6 +502,7 @@ async def register(
             "user": _owner,
             "users": users,
             "UserRole": UserRole,
+            "ALL_PERMISSIONS": ALL_PERMISSIONS,
             "error": "Username sudah dipakai",
         })
 
@@ -486,6 +511,8 @@ async def register(
         password_hash=hash_password(password),
         display_name=display_name,
         role=UserRole(role) if role in [r.value for r in UserRole] else UserRole.VIEWER,
+        telegram_username=telegram_username or None,
+        permissions=perms_json,
     )
     db.add(new_user)
     db.commit()
@@ -493,11 +520,33 @@ async def register(
     return RedirectResponse("/users", status_code=302)
 
 
+
+
+@app.post("/api/users/{user_id}/permissions")
+async def update_user_permissions(
+    user_id: int,
+    request: Request,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_permission("users.manage")),
+):
+    """Update user permissions (users.manage required)."""
+    if current_user.id == user_id:
+        raise HTTPException(status_code=400, detail="Cannot modify your own permissions")
+    user = db.query(User).filter(User.id == user_id).first()
+    if not user:
+        raise HTTPException(status_code=404)
+    form = await request.form()
+    import json as _json
+    perm_keys = [k[5:] for k in form.keys() if k.startswith("perm_")]
+    user.permissions = _json.dumps(perm_keys) if perm_keys else None
+    db.commit()
+    return RedirectResponse("/users", status_code=302)
+
 @app.post("/api/users/{user_id}/delete")
 async def delete_user(
     user_id: int,
     db: Session = Depends(get_db),
-    current_user: User = Depends(require_role(UserRole.OWNER)),
+    current_user: User = Depends(require_permission("users.manage")),
 ):
     if current_user.id == user_id:
         raise HTTPException(status_code=400, detail="Cannot delete yourself")
@@ -509,11 +558,12 @@ async def delete_user(
     return RedirectResponse("/users", status_code=302)
 
 
+
 @app.post("/api/users/{user_id}/toggle")
 async def toggle_user(
     user_id: int,
     db: Session = Depends(get_db),
-    current_user: User = Depends(require_role(UserRole.OWNER)),
+    current_user: User = Depends(require_permission("users.manage")),
 ):
     if current_user.id == user_id:
         raise HTTPException(status_code=400, detail="Cannot disable yourself")
@@ -523,6 +573,7 @@ async def toggle_user(
     user.is_active = 0 if user.is_active else 1
     db.commit()
     return RedirectResponse("/users", status_code=302)
+
 
 
 # ═══════════════════════════════════════════════════════════════════
@@ -644,7 +695,8 @@ async def api_stock_in(
 
     # Redirect for web form
     if "multipart/form-data" in content_type:
-        return RedirectResponse(f"/products/{product_id}", status_code=302)
+        return RedirectResponse("/users", status_code=302)
+
 
     return {
         "ok": True,
@@ -702,7 +754,8 @@ async def api_stock_out(
     db.commit()
 
     if "multipart/form-data" in content_type:
-        return RedirectResponse(f"/products/{product_id}", status_code=302)
+        return RedirectResponse("/users", status_code=302)
+
 
     return {
         "ok": True,

@@ -13,27 +13,49 @@
 <!-- Add User Form -->
 <div class="panel" style="margin-bottom:20px;">
     <div class="panel-title" style="margin-bottom:12px;">➕ Tambah Pengguna Baru</div>
-    <form method="post" action="/auth/register" style="display:flex;gap:12px;align-items:flex-end;flex-wrap:wrap;">
-        <div class="field" style="flex:1;min-width:140px;">
-            <label style="display:block;font-size:12px;color:var(--text-muted);margin-bottom:4px;">Username</label>
-            <input type="text" name="username" required style="width:100%;padding:8px 12px;background:var(--bg-input);border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--text-primary);font-family:inherit;font-size:13px;">
-        </div>
-        <div class="field" style="flex:1;min-width:140px;">
-            <label style="display:block;font-size:12px;color:var(--text-muted);margin-bottom:4px;">Nama Tampilan</label>
-            <input type="text" name="display_name" required style="width:100%;padding:8px 12px;background:var(--bg-input);border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--text-primary);font-family:inherit;font-size:13px;">
+    <form method="post" action="/auth/register">
+        <div style="display:flex;gap:12px;align-items:flex-end;flex-wrap:wrap;margin-bottom:14px;">
+            <div class="field" style="flex:1;min-width:140px;">
+                <label style="display:block;font-size:12px;color:var(--text-muted);margin-bottom:4px;">Username</label>
+                <input type="text" name="username" required style="width:100%;padding:8px 12px;background:var(--bg-input);border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--text-primary);font-family:inherit;font-size:13px;">
+            </div>
+            <div class="field" style="flex:1;min-width:140px;">
+                <label style="display:block;font-size:12px;color:var(--text-muted);margin-bottom:4px;">Nama Tampilan</label>
+                <input type="text" name="display_name" required style="width:100%;padding:8px 12px;background:var(--bg-input);border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--text-primary);font-family:inherit;font-size:13px;">
+            </div>
+            <div class="field" style="flex:1;min-width:140px;">
+            <label style="display:block;font-size:12px;color:var(--text-muted);margin-bottom:4px;">Telegram @username</label>
+            <input type="text" name="telegram_username" placeholder="tanpa @" style="width:100%;padding:8px 12px;background:var(--bg-input);border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--text-primary);font-family:inherit;font-size:13px;">
         </div>
         <div class="field" style="flex:1;min-width:120px;">
-            <label style="display:block;font-size:12px;color:var(--text-muted);margin-bottom:4px;">Password</label>
-            <input type="password" name="password" required style="width:100%;padding:8px 12px;background:var(--bg-input);border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--text-primary);font-family:inherit;font-size:13px;">
+                <label style="display:block;font-size:12px;color:var(--text-muted);margin-bottom:4px;">Password</label>
+                <input type="password" name="password" required style="width:100%;padding:8px 12px;background:var(--bg-input);border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--text-primary);font-family:inherit;font-size:13px;">
+            </div>
+            <div class="field" style="min-width:100px;">
+                <label style="display:block;font-size:12px;color:var(--text-muted);margin-bottom:4px;">Role</label>
+                <select name="role" style="padding:8px 12px;background:var(--bg-input);border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--text-primary);font-family:inherit;font-size:13px;">
+                    <option value="admin">Admin</option>
+                    <option value="viewer">Viewer</option>
+                </select>
+            </div>
+            <button type="submit" class="btn btn-primary" style="height:36px;">Tambah</button>
         </div>
-        <div class="field" style="min-width:100px;">
-            <label style="display:block;font-size:12px;color:var(--text-muted);margin-bottom:4px;">Role</label>
-            <select name="role" style="padding:8px 12px;background:var(--bg-input);border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--text-primary);font-family:inherit;font-size:13px;">
-                <option value="admin">Admin</option>
-                <option value="viewer">Viewer</option>
-            </select>
-        </div>
-        <button type="submit" class="btn btn-primary" style="height:36px;">Tambah</button>
+
+        <!-- Permission Checkboxes -->
+        <details style="margin-top:4px;">
+            <summary style="cursor:pointer;font-size:12px;color:var(--text-muted);padding:4px 0;user-select:none;">
+                ⚙️ Izin Kustom (opsional) — klik untuk atur
+            </summary>
+            <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:4px 8px;margin-top:8px;padding:10px 14px;background:var(--bg-input);border-radius:var(--radius-sm);border:1px solid var(--border);">
+                {% for key, label in ALL_PERMISSIONS.items() %}
+                <label style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--text-secondary);cursor:pointer;padding:3px 0;">
+                    <input type="checkbox" name="perm_{{ key }}" value="on" style="accent-color:var(--accent);">
+                    {{ label }}
+                </label>
+                {% endfor %}
+            </div>
+            <span style="font-size:10px;color:var(--text-muted);display:block;margin-top:4px;">Kosongkan = pakai izin default sesuai Role</span>
+        </details>
     </form>
 </div>
 
@@ -44,7 +66,9 @@
             <tr>
                 <th>Username</th>
                 <th>Nama</th>
+                <th>Telegram</th>
                 <th>Role</th>
+                <th>Izin</th>
                 <th>Status</th>
                 <th>Dibuat</th>
                 <th></th>
@@ -55,6 +79,7 @@
             <tr>
                 <td class="mono">{{ u.username }}</td>
                 <td>{{ u.display_name }}</td>
+                <td class="mono" style="font-size:11px;">{{ ("@" + u.telegram_username) if u.telegram_username else "—" }}</td>
                 <td>
                     {% if u.role == UserRole.OWNER %}
                     <span class="badge" style="background:var(--accent-glow);color:var(--accent-hover);">👑 Owner</span>
@@ -62,6 +87,16 @@
                     <span class="badge badge-in">Admin</span>
                     {% else %}
                     <span class="badge badge-web">Viewer</span>
+                    {% endif %}
+                </td>
+                <td>
+                    {% set perms = u.get_permissions() %}
+                    {% if u.role == UserRole.OWNER %}
+                    <span style="font-size:10px;color:var(--text-muted);">Semua (Owner)</span>
+                    {% elif perms|length == 0 %}
+                    <span style="font-size:10px;color:var(--text-muted);">Default Role</span>
+                    {% else %}
+                    <span style="font-size:10px;color:var(--accent);">{{ perms|length }} izin</span>
                     {% endif %}
                 </td>
                 <td>
@@ -74,6 +109,9 @@
                 <td class="mono text-muted">{{ u.created_at.strftime('%d/%m/%y') }}</td>
                 <td>
                     {% if u.id != user.id %}
+                    {% if u.role != UserRole.OWNER %}
+                    <button class="btn" style="font-size:11px;padding:3px 8px;" onclick="document.getElementById('perm-modal-{{ u.id }}').showModal()">⚙️</button>
+                    {% endif %}
                     <form method="post" action="/api/users/{{ u.id }}/toggle" style="display:inline;">
                         <button class="btn" style="font-size:11px;padding:3px 8px;">
                             {{ 'Nonaktifkan' if u.is_active else 'Aktifkan' }}
@@ -91,5 +129,32 @@
         </tbody>
     </table>
 </div>
+
+<!-- Permission Edit Modals -->
+{% for u in users %}
+{% if u.id != user.id and u.role != UserRole.OWNER %}
+<dialog id="perm-modal-{{ u.id }}" style="background:var(--bg-panel);border:1px solid var(--border);border-radius:var(--radius);color:var(--text-primary);padding:24px;max-width:500px;width:90%;">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
+        <h3 style="margin:0;">⚙️ Izin — {{ u.display_name }}</h3>
+        <button onclick="this.closest('dialog').close()" style="background:none;border:none;color:var(--text-muted);font-size:20px;cursor:pointer;">✕</button>
+    </div>
+    <form method="post" action="/api/users/{{ u.id }}/permissions">
+        {% set user_perms = u.get_permissions() %}
+        <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:6px 12px;margin-bottom:16px;">
+            {% for key, label in ALL_PERMISSIONS.items() %}
+            <label style="display:flex;align-items:center;gap:8px;font-size:13px;color:var(--text-primary);cursor:pointer;padding:5px 0;">
+                <input type="checkbox" name="perm_{{ key }}" value="on" style="accent-color:var(--accent);" {% if key in user_perms %}checked{% endif %}>
+                {{ label }}
+            </label>
+            {% endfor %}
+        </div>
+        <div style="display:flex;gap:8px;justify-content:flex-end;">
+            <button type="button" class="btn" onclick="this.closest('dialog').close()" style="background:var(--bg-input);">Batal</button>
+            <button type="submit" class="btn btn-primary">Simpan</button>
+        </div>
+    </form>
+</dialog>
+{% endif %}
+{% endfor %}
 
 {% endblock %}

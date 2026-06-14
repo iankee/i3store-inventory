@@ -10,7 +10,7 @@ from passlib.context import CryptContext
 from sqlalchemy.orm import Session
 
 from config import SECRET_KEY, ALGORITHM, ACCESS_TOKEN_EXPIRE_MINUTES
-from models import SessionLocal, User, UserRole
+from models import SessionLocal, User, UserRole, has_permission
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/auth/login", auto_error=False)
@@ -80,8 +80,31 @@ def get_current_user(
     return user
 
 
+# ── Permission-based access control ──────────────────────────────
+
+def require_permission(permission: str):
+    """Dependency factory: require a specific permission."""
+    async def checker(user: User = Depends(get_current_user)):
+        if not has_permission(user, permission):
+            raise HTTPException(status_code=403, detail=f"Permission '{permission}' required")
+        return user
+    return checker
+
+
+def require_any_permission(*permissions: str):
+    """Dependency factory: require at least one of the given permissions."""
+    async def checker(user: User = Depends(get_current_user)):
+        for p in permissions:
+            if has_permission(user, p):
+                return user
+        raise HTTPException(status_code=403, detail="Insufficient permissions")
+    return checker
+
+
+# ── Backward-compatible role check ───────────────────────────────
+
 def require_role(*roles: UserRole):
-    """Dependency factory: require one of the given roles."""
+    """Dependency factory: require one of the given roles. (Legacy compatibility.)"""
     async def checker(user: User = Depends(get_current_user)):
         if user.role not in roles:
             raise HTTPException(status_code=403, detail="Insufficient permissions")

@@ -36,6 +36,8 @@ from models import (
     Product,
     SessionLocal,
     StockMovement,
+    User,
+    has_permission,
 )
 from ocr import parse_label
 
@@ -57,6 +59,56 @@ VARIANT_WORDS = {
     "4/128", "6/128", "8/128", "8/256", "12/256", "12/512",
     "128gb", "256gb", "512gb", "1tb", "64gb",
 }
+
+
+# ── Bot auth ─────────────────────────────────────────────────────
+
+def get_telegram_user(update: Update) -> User | None:
+    """Look up the Telegram user in the database by their @username."""
+    tg_user = update.effective_user
+    if not tg_user:
+        return None
+    username = tg_user.username or ""
+    db = SessionLocal()
+    try:
+        # Match by Telegram @username (case-insensitive)
+        user = db.query(User).filter(
+            User.telegram_username.ilike(username),
+            User.is_active == 1
+        ).first()
+        return user
+    finally:
+        db.close()
+
+
+def require_bot_access(update: Update) -> tuple[User | None, str | None]:
+    """Check if the Telegram user has bot access permission.
+    Returns (user, error_message). user=None + error=str means blocked.
+    """
+    user = get_telegram_user(update)
+    if not user:
+        return None, "⚠️ Kamu belum terdaftar. Hubungi admin untuk akses."
+    if not has_permission(user, "telegram.bot"):
+        return None, "⛔ Akses bot ditolak. Izin 'telegram.bot' diperlukan."
+    return user, None
+
+
+def check_stock_in_perm(update: Update) -> bool:
+    """Check if user has stock.in permission."""
+    user = get_telegram_user(update)
+    return user is not None and has_permission(user, "stock.in")
+
+
+def check_stock_out_perm(update: Update) -> bool:
+    """Check if user has stock.out permission."""
+    user = get_telegram_user(update)
+    return user is not None and has_permission(user, "stock.out")
+
+
+def check_products_view_perm(update: Update) -> bool:
+    """Check if user has products.view permission."""
+    user = get_telegram_user(update)
+    return user is not None and has_permission(user, "products.view")
 
 
 def extract_variants(text: str) -> set[str]:
@@ -548,6 +600,9 @@ async def _handle_outgoing(msg, caption: str):
 
 async def keluar_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Handle /keluar command — manual stock-out."""
+    if not check_stock_out_perm(update):
+        await update.message.reply_text("⛔ Kamu tidak punya izin barang keluar.")
+        return
     msg = update.message
     text = msg.text or msg.caption or ""
 
@@ -737,6 +792,9 @@ async def help_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 async def stock_list(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if not check_products_view_perm(update):
+        await update.message.reply_text("⛔ Kamu tidak punya izin melihat stok.")
+        return
     db = SessionLocal()
     try:
         products = db.query(Product).filter(Product.is_active == 1).order_by(Product.name).all()
@@ -860,6 +918,14 @@ async def _send_and_cache(msg, photo_path, photo_hash, text, **kwargs):
 async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Smart message handler with fuzzy product matching."""
     msg = update.message
+    # Auth check
+    _, err = require_bot_access(update)
+    if err:
+        await msg.reply_text(err)
+        return
+    if not check_stock_in_perm(update):
+        await msg.reply_text("⛔ Kamu tidak punya izin barang masuk.")
+        return
     if not msg:
         return
 

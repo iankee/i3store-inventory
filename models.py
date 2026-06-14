@@ -4,6 +4,7 @@ from datetime import datetime, timezone
 from sqlalchemy import create_engine, Column, Integer, String, Float, DateTime, ForeignKey, Enum as SAEnum
 from sqlalchemy.orm import DeclarativeBase, relationship, sessionmaker
 import enum
+import json
 
 from config import DATABASE_URL
 
@@ -21,6 +22,51 @@ class UserRole(str, enum.Enum):
     OWNER = "owner"
     ADMIN = "admin"
     VIEWER = "viewer"
+
+
+# ── Permissions ──────────────────────────────────────────────────
+
+# All available permissions with labels (for UI checkboxes)
+ALL_PERMISSIONS = {
+    "products.view":     "📋 Lihat Produk",
+    "products.create":   "➕ Tambah Produk",
+    "products.edit":     "✏️ Edit Produk",
+    "products.delete":   "🗑️ Hapus Produk",
+    "stock.in":          "📥 Barang Masuk",
+    "stock.out":         "📤 Barang Keluar",
+    "stock.adjust":      "⚖️ Adjustment Stok",
+    "users.manage":      "👥 Kelola User",
+    "telegram.bot":      "🤖 Akses Bot Telegram",
+    "reports.view":      "📊 Lihat Laporan",
+}
+
+# Which permissions each legacy role gets
+ROLE_PERMISSIONS = {
+    UserRole.OWNER:  set(ALL_PERMISSIONS.keys()),
+    UserRole.ADMIN:  {"products.view", "products.create", "products.edit",
+                       "stock.in", "stock.out", "stock.adjust",
+                       "telegram.bot", "reports.view"},
+    UserRole.VIEWER: {"products.view", "reports.view"},
+}
+
+
+def parse_permissions(raw: str | None) -> set[str]:
+    """Parse JSON permission string to set. Returns empty set on failure."""
+    if not raw:
+        return set()
+    try:
+        return set(json.loads(raw))
+    except (json.JSONDecodeError, TypeError):
+        return set()
+
+
+def has_permission(user: "User", permission: str) -> bool:
+    """Check if user has a specific permission. OWNER always has everything."""
+    if user.role == UserRole.OWNER:
+        return True
+    if not user.permissions:
+        return permission in ROLE_PERMISSIONS.get(user.role, set())
+    return permission in parse_permissions(user.permissions)
 
 
 class MovementType(str, enum.Enum):
@@ -46,11 +92,20 @@ class User(Base):
     password_hash = Column(String(256), nullable=False)
     display_name = Column(String(128), nullable=False)
     role = Column(SAEnum(UserRole), default=UserRole.ADMIN, nullable=False)
+    permissions = Column(String(2048), nullable=True)  # JSON array of permission keys
     telegram_username = Column(String(64), nullable=True)  # for bot auth
     is_active = Column(Integer, default=1, nullable=False)
     created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
 
     movements = relationship("StockMovement", back_populates="user")
+
+    def get_permissions(self) -> set[str]:
+        """Get effective permissions for this user."""
+        return parse_permissions(self.permissions) if self.permissions else ROLE_PERMISSIONS.get(self.role, set())
+
+    def can(self, permission: str) -> bool:
+        """Check if this user has a specific permission."""
+        return has_permission(self, permission)
 
 
 class Product(Base):
