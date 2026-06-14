@@ -397,7 +397,7 @@ async def delete_product_web(
     db.delete(product)
     db.commit()
 
-    return RedirectResponse("/users", status_code=302)
+    return RedirectResponse("/products", status_code=302)
 
 
 
