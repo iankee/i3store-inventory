@@ -28,6 +28,10 @@ This system solves all four in one unified platform.
 ## ✨ Features
 
 ### 🤖 Telegram Bot (`@i3storeBot`)
+
+<p align="center">
+  <img src="demo.gif" alt="Telegram Bot Demo" width="600"/>
+</p>
 - **AI-powered fuzzy matching** — Type "poco hitam" and it finds "POCO C71 BLACK 4/128GB"
 - **Variant-aware matching** — Knows the difference between "iPhone 15 black" and "iPhone 15 white"
 - **Inline keyboards** — Confirm/cancel stock movements with one tap
