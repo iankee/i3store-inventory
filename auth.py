@@ -36,6 +36,8 @@ def create_access_token(data: dict) -> str:
 
 
 def decode_token(token: str) -> Optional[dict]:
+    if not token:
+        return None
     try:
         return jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
     except JWTError:
